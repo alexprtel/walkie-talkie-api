@@ -79,7 +79,9 @@ end
     |> Plug.Conn.put_resp_header("access-control-allow-headers", "content-type, authorization, accept")
   end
 
+  plug :handle_options
   plug :put_cors_headers
+
   plug WalkieTalkieWeb.Router
 
 end
