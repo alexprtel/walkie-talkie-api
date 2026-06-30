@@ -48,6 +48,19 @@ defmodule WalkieTalkieWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  defp handle_options(conn, _opts) do
+  if conn.method == "OPTIONS" do
+    conn
+    |> put_resp_header("access-control-allow-origin", "*")
+    |> put_resp_header("access-control-allow-methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+    |> put_resp_header("access-control-allow-headers", "content-type, authorization, accept")
+    |> send_resp(200, "")
+    |> halt()
+  else
+    conn
+  end
+end
+
   plug Plug.Parsers,
 
     parsers: [:urlencoded, :multipart, :json],
