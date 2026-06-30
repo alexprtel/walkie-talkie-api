@@ -1,3 +1,5 @@
+const API_BASE = import.meta.env.VITE_API_URL || '/api'; // para conectar con la DB
+
 import React, { useState, useEffect } from 'react';
 import { login, register, setToken } from '../api';
 import { signInWithGoogle, resetPassword } from '../firebase';
@@ -67,7 +69,7 @@ export default function AuthView({ onLoginSuccess }) {
       const handleGoogleLogin = async () => {
   try {
     const googleUser = await signInWithGoogle(); // retorna { email, name, id }
-    const res = await fetch('/api/auth/google', {
+    const res = await fetch(`${API_BASE}/auth/google`, { //colocamos API_BASE la variable para que tome la data de la db 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
