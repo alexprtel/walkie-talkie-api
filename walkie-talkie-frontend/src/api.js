@@ -35,7 +35,7 @@ async function apiFetch(endpoint, options = {}) {
 // para obtener los detalles de la sala
 // Obtener detalles de una sala (para el nombre)
 export async function getRoomDetails(roomId) {
-  const res = await apiFetch(`/audio-rooms/${roomId}`);
+  const res = await apiFetch(`${API_BASE}/audio-rooms/${roomId}`);
   const data = await res.json();
   return data;
 }
@@ -67,7 +67,7 @@ export async function login(email, password) {
 
 // Salas
 export async function createRoom(roomData) {
-  const res = await apiFetch('/audio-rooms', {
+  const res = await apiFetch(`${API_BASE}/audio-rooms`, {
     method: 'POST',
     body: JSON.stringify(roomData)
   });
@@ -75,7 +75,7 @@ export async function createRoom(roomData) {
 }
 
 export async function joinRoom(roomId, password) {
-  const res = await apiFetch(`/audio-rooms/${roomId}/join`, {
+  const res = await apiFetch(`${API_BASE}/audio-rooms/${roomId}/join`, {
     method: 'POST',
     body: JSON.stringify({ password: password || "" })
   });
@@ -87,19 +87,19 @@ export async function joinRoom(roomId, password) {
 }
 
 export async function getParticipants(roomId) {
-  const res = await apiFetch(`/audio-rooms/${roomId}/participants`);
+  const res = await apiFetch(`${API_BASE}/audio-rooms/${roomId}/participants`);
   const data = await res.json();
   return data.participants || [];
 }
 
 export async function getPublicRooms() {
-  const res = await apiFetch('/audio-rooms/public');
+  const res = await apiFetch(`${API_BASE}/audio-rooms/public`);
   const data = await res.json();
   return data.rooms || [];
 }
 
 export async function getPrivateRooms() {
-  const res = await apiFetch('/audio-rooms/private');
+  const res = await apiFetch(`${API_BASE}/audio-rooms/private`);
   const data = await res.json();
   return data.rooms || [];
   setInviteCode('')
@@ -107,14 +107,14 @@ export async function getPrivateRooms() {
 
 
 export async function getRoomByInviteCode(code) {
-  const res = await apiFetch(`/audio-rooms/by-code/${code}`);
+  const res = await apiFetch(`${API_BASE}/audio-rooms/by-code/${code}`);
   if (!res.ok) throw new Error('Sala no encontrada');
   return res.json();
 }
 
 // Mensajes y segmentos
 export async function startMessage(roomId) {
-  const res = await apiFetch(`/audio-rooms/${roomId}/messages`, { method: 'POST' });
+  const res = await apiFetch(`${API_BASE}/audio-rooms/${roomId}/messages`, { method: 'POST' });
   const data = await res.json();
   return data.message_id;
 }
@@ -125,42 +125,42 @@ export async function sendSegment(messageId, sequence, duration, blob) {
   formData.append('duration', duration);
   formData.append('format', 'webm');
   formData.append('audio', blob, `segment_${sequence}.webm`);
-  const res = await apiFetch(`/messages/${messageId}/segments`, { method: 'POST', body: formData });
+  const res = await apiFetch(`${API_BASE}/messages/${messageId}/segments`, { method: 'POST', body: formData });
   return res.ok;
 }
 
 export async function finalizeMessage(messageId) {
-  const res = await apiFetch(`/messages/${messageId}/finalize`, { method: 'POST' });
+  const res = await apiFetch(`${API_BASE}/messages/${messageId}/finalize`, { method: 'POST' });
   return res.ok;
 }
 
 export async function pollSegments(roomId, afterSequence) {
-  const res = await apiFetch(`/audio-rooms/${roomId}/segments?after_sequence=${afterSequence}`);
+  const res = await apiFetch(`${API_BASE}/audio-rooms/${roomId}/segments?after_sequence=${afterSequence}`);
   const data = await res.json();
   return data.segments || [];
 }
 
 export async function getRoomMessages(roomId) {
-  const res = await apiFetch(`/audio-rooms/${roomId}/messages`);
+  const res = await apiFetch(`${API_BASE}/audio-rooms/${roomId}/messages`);
   const data = await res.json();
   return data.messages || [];
 }
 
 export async function cleanExpiredSegments(roomId) {
-  const res = await apiFetch(`/audio-rooms/${roomId}/segments/expired`, { method: 'DELETE' });
+  const res = await apiFetch(`${API_BASE}/audio-rooms/${roomId}/segments/expired`, { method: 'DELETE' });
   const data = await res.json();
   return data.deleted_count;
 }
 
 export async function getOnlineUsers() {
-  const res = await apiFetch('/online-users');
+  const res = await apiFetch(`${API_BASE}/online-users`);
   const data = await res.json();
   return data.users || [];
 }
 
 // para modificar el perfil de usuarios
 export async function updateProfile(data) {
-  const res = await apiFetch('/user/profile', {
+  const res = await apiFetch(`${API_BASE}/user/profile`, {
     method: 'PUT',
     body: JSON.stringify(data)
   });
