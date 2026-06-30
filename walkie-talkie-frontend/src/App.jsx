@@ -1,4 +1,3 @@
-const API_BASE = import.meta.env.VITE_API_URL || '/api'; //Ruta para el acceso al DB
 import React, { useState, useEffect } from 'react';
 import AuthView from './components/AuthView';
 import RoomsView from './components/RoomsView';
@@ -16,7 +15,7 @@ function App() {
   useEffect(() => {
   const token = getToken();
   if (token) {
-    fetch(`${API_BASE}/me`, {
+    fetch('/api/me', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
