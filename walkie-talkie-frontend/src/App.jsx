@@ -1,9 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import AuthView from './components/AuthView';
 import RoomsView from './components/RoomsView';
 import ActiveRoomView from './components/ActiveRoomView';
 import ThemeToggle from './components/ThemeToggle';
 import { getToken } from './api';
+
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 function App() {
   const [view, setView] = useState('auth');
@@ -15,7 +18,7 @@ function App() {
   useEffect(() => {
   const token = getToken();
   if (token) {
-    fetch('/api/me', {
+    fetch(`${API_BASE}/me`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -59,12 +62,12 @@ const handleUserUpdate = (updatedUser) => {
 };
 
 // dentro del return, donde usas RoomsView:
-<RoomsView
-  onJoinRoom={handleJoinRoom}
-  onLogout={handleLogout}
-  user={user}
-  onUserUpdate={handleUserUpdate}
-/>
+//<RoomsView
+  //onJoinRoom={handleJoinRoom}
+//  onLogout={handleLogout}
+//  user={user}
+ // onUserUpdate={handleUserUpdate}
+// />
 
  // src/App.jsx (solo la parte del return, el resto igual)
     return (

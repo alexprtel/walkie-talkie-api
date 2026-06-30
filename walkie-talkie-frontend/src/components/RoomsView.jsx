@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createRoom, joinRoom, getPublicRooms, getPrivateRooms, getRoomByInviteCode, getOnlineUsers, setToken } from '../api';
 import ProfileSettingsModal from './ProfileSettingsModal';
 import PasswordModal from './PasswordModal';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export default function RoomsView({ onJoinRoom, onLogout, user, onUserUpdate, refreshKey }) {
   const [activeTab, setActiveTab] = useState('explore');
@@ -201,7 +202,7 @@ export default function RoomsView({ onJoinRoom, onLogout, user, onUserUpdate, re
   // ========== LOGOUT ==========
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('walkie_token')}` },
       });

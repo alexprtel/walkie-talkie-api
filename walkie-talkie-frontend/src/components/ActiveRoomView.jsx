@@ -1,3 +1,4 @@
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   getParticipants,
@@ -34,7 +35,8 @@ function HistoryAudioPlayer({ audioUrl }) {
     const loadAudio = async () => {
       try {
         const token = localStorage.getItem('walkie_token');
-        const res = await fetch(audioUrl, {
+        const fullUrl = audioUrl.startsWith('/api/') ? `${API_BASE}${audioUrl}` : audioUrl;
+        const res = await fetch(fullUrl, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -164,7 +166,7 @@ export default function ActiveRoomView({ roomId, onLeave }) {
     // finaliza solo cuando detecte que el usuario se fue (ver Rooms.ex).
     if (recordingPhaseRef.current === 'recording' && currentMessageId.current) {
       const token = localStorage.getItem('walkie_token');
-      fetch(`/api/messages/${currentMessageId.current}/finalize`, {
+      fetch(`${API_BASE}/messages/${currentMessageId.current}/finalize`, {
         method: 'POST',
         keepalive: true,
         headers: { Authorization: `Bearer ${token}` },
@@ -594,7 +596,7 @@ export default function ActiveRoomView({ roomId, onLeave }) {
     // que mantenga viva esta petición incluso si la página se cierra
     // ahora mismo (igual que sendBeacon, pero sí permite headers
     // normales como Authorization).
-    fetch(`/api/audio-rooms/${roomId}/leave`, {
+    fetch(`${API_BASE}/audio-rooms/${roomId}/leave`, {
       method: 'POST',
       keepalive: true,
       headers: {
