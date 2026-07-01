@@ -16,9 +16,19 @@ defmodule WalkieTalkieWeb.Router do
     token = List.first(Plug.Conn.get_req_header(conn, "authorization"))
     token = if token, do: String.replace_prefix(token, "Bearer ", ""), else: nil
 
+    # ===== LOGS PARA DEPURAR AUTENTICACIÓN =====
+    IO.inspect(token, label: "🔑 Token recibido en backend")
+
     if token do
-      user = WalkieTalkie.Guardian.get_user_from_token(token)
-      assign(conn, :current_user, user)
+      case WalkieTalkie.Guardian.verify_token(token) do
+        {:ok, claims} ->
+          user = WalkieTalkie.Accounts.get_user!(claims["user_id"])
+          IO.inspect(user, label: "👤 Usuario autenticado")
+          assign(conn, :current_user, user)
+        error ->
+          IO.inspect(error, label: "❌ Error al verificar token")
+          assign(conn, :current_user, nil)
+      end
     else
       assign(conn, :current_user, nil)
     end
@@ -29,6 +39,9 @@ defmodule WalkieTalkieWeb.Router do
 
     post "/auth/register", AuthController, :register
     post "/auth/login", AuthController, :login
+
+    #para google (MOVIDO A RUTAS PÚBLICAS, SIN AUTENTICACIÓN)
+    post "/auth/google", AuthController, :google_login
   end
 
   scope "/api", WalkieTalkieWeb do
@@ -50,22 +63,18 @@ defmodule WalkieTalkieWeb.Router do
     #para eliminacion de forma manual
     delete "/audio-rooms/:room_id/segments/expired", MessageController, :clean_expired
 
-    #para cerar sesion
-
+    #para cerrar sesion
     post "/auth/logout", AuthController, :logout
     ##estado
     get "/online-users", UserController, :online_users
 
     post "/audio-rooms/:room_id/leave", RoomController, :leave
 
-    #para google
-    post "/auth/google", AuthController, :google_login
-
-    #para actulizar perfil
+    #para actualizar perfil
     put "/user/profile", UserController, :update_profile
     post "/user/avatar", UserController, :upload_avatar
 
-    #para la visualzacion de las salas
+    #para la visualizacion de las salas
     get "/audio-rooms/public", RoomController, :public_rooms
     get "/audio-rooms/private", RoomController, :private_rooms
 
