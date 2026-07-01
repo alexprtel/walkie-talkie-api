@@ -1,6 +1,6 @@
 import Config
 
-# Configuración del endpoint (se aplica en compilación y runtime)
+# Configuración del endpoint (todo en un solo lugar)
 config :walkie_talkie, WalkieTalkieWeb.Endpoint,
   force_ssl: [
     rewrite_on: [:x_forwarded_proto],
@@ -17,7 +17,8 @@ config :walkie_talkie, WalkieTalkieWeb.Endpoint,
     ip: {0, 0, 0, 0, 0, 0, 0, 0},
     port: String.to_integer(System.get_env("PORT", "8080"))
   ],
-  secret_key_base: System.get_env("SECRET_KEY_BASE")
+  secret_key_base: System.get_env("SECRET_KEY_BASE"),
+  server: System.get_env("PHX_SERVER") == "true"
 
 # Configuración de Swoosh
 config :swoosh, api_client: Swoosh.ApiClient.Req
