@@ -32,50 +32,57 @@ defmodule WalkieTalkieWeb.RoomController do
   def create(conn, _), do:
     conn |> put_status(:bad_request) |> json(%{error: "Invalid request body"})
 
-  # ========== JOIN para Private ==========
+  # ========== JOIN ==========
   def join(conn, %{"room_id" => room_id, "password" => password}) do
-    IO.inspect(conn.assigns.current_user, label: "current_user en join")
-  current_user = conn.assigns.current_user
-  if is_nil(current_user) do
-    conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
-  else
-    room = Rooms.get_room!(room_id)
-    if room.is_private do
-      if Rooms.verify_room_password(room, password) do
+    current_user = conn.assigns.current_user
+    if is_nil(current_user) do
+      conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
+    else
+      room = Rooms.get_room!(room_id)
+      if room.is_private do
+        if Rooms.verify_room_password(room, password) do
+          case Rooms.add_participant(room_id, current_user.id) do
+            {:ok, _} -> json(conn, %{success: true})
+            {:error, _} -> conn |> put_status(:conflict) |> json(%{error: "Ya estás en la sala"})
+          end
+        else
+          conn |> put_status(:unauthorized) |> json(%{error: "Contraseña incorrecta"})
+        end
+      else
+        # Sala pública: no requiere contraseña
         case Rooms.add_participant(room_id, current_user.id) do
           {:ok, _} -> json(conn, %{success: true})
           {:error, _} -> conn |> put_status(:conflict) |> json(%{error: "Ya estás en la sala"})
         end
-      else
-        conn |> put_status(:unauthorized) |> json(%{error: "Contraseña incorrecta"})
-      end
-    else
-      # Sala pública: no requiere contraseña
-      case Rooms.add_participant(room_id, current_user.id) do
-        {:ok, _} -> json(conn, %{success: true})
-        {:error, _} -> conn |> put_status(:conflict) |> json(%{error: "Ya estás en la sala"})
       end
     end
   end
-end
 
   # ========== PARTICIPANTS ==========
   def participants(conn, %{"room_id" => room_id}) do
     current_user = conn.assigns.current_user
-    if Rooms.is_participant?(room_id, current_user.id) do
-      participants = Rooms.get_participants(room_id)
-      json(conn, %{participants: Enum.map(participants, fn u -> %{id: u.id, name: u.name, email: u.email} end)})
+    if is_nil(current_user) do
+      conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
     else
-      conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
+      if Rooms.is_participant?(room_id, current_user.id) do
+        participants = Rooms.get_participants(room_id)
+        json(conn, %{participants: Enum.map(participants, fn u -> %{id: u.id, name: u.name, email: u.email} end)})
+      else
+        conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
+      end
     end
   end
 
   # ========== LEAVE ==========
   def leave(conn, %{"room_id" => room_id}) do
     current_user = conn.assigns.current_user
-    case Rooms.remove_participant(room_id, current_user.id) do
-      :ok -> json(conn, %{ok: true})
-      :error -> conn |> put_status(:not_found) |> json(%{error: "Not a participant"})
+    if is_nil(current_user) do
+      conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
+    else
+      case Rooms.remove_participant(room_id, current_user.id) do
+        :ok -> json(conn, %{ok: true})
+        :error -> conn |> put_status(:not_found) |> json(%{error: "Not a participant"})
+      end
     end
   end
 
@@ -115,11 +122,15 @@ end
     json(conn, %{rooms: render_rooms(rooms)})
   end
 
-  # ========== PRIVATE ROOMS (CORREGIDO) ==========
+  # ========== PRIVATE ROOMS ==========
   def private_rooms(conn, _params) do
     current_user = conn.assigns.current_user
-    rooms = Rooms.list_private_rooms_for_user(current_user.id)
-    json(conn, %{rooms: render_rooms(rooms)})
+    if is_nil(current_user) do
+      conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
+    else
+      rooms = Rooms.list_private_rooms_for_user(current_user.id)
+      json(conn, %{rooms: render_rooms(rooms)})
+    end
   end
 
   # ========== RENDER ROOMS (convierte structs a mapas) ==========

@@ -1,5 +1,8 @@
 defmodule WalkieTalkie.Guardian do
-  @secret "MI_SECRETO_SUPER_SECRETO_CAMBIAR_EN_PRODUCCION"
+  # Leer la clave secreta desde la configuración de la aplicación
+  # Esto asegura que use el mismo valor que está en SECRET_KEY_BASE
+  # (tanto en desarrollo como en producción).
+  @secret Application.compile_env!(:walkie_talkie, WalkieTalkieWeb.Endpoint)[:secret_key_base]
 
   def generate_token(user) do
     signer = Joken.Signer.create("HS256", @secret)
