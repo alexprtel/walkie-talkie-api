@@ -32,22 +32,32 @@ defmodule WalkieTalkieWeb.RoomController do
   def create(conn, _), do:
     conn |> put_status(:bad_request) |> json(%{error: "Invalid request body"})
 
-  # ========== JOIN ==========
+  # ========== JOIN para Private ==========
   def join(conn, %{"room_id" => room_id, "password" => password}) do
-    current_user = conn.assigns.current_user
+    IO.inspect(conn.assigns.current_user, label: "current_user en join")
+  current_user = conn.assigns.current_user
+  if is_nil(current_user) do
+    conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
+  else
     room = Rooms.get_room!(room_id)
-
-    if Rooms.verify_room_password(room, password) do
-      case Rooms.add_participant(room_id, current_user.id) do
-        {:ok, _} ->
-          json(conn, %{success: true, message: "Joined room"})
-        {:error, _} ->
-          conn |> put_status(:conflict) |> json(%{error: "Already in room"})
+    if room.is_private do
+      if Rooms.verify_room_password(room, password) do
+        case Rooms.add_participant(room_id, current_user.id) do
+          {:ok, _} -> json(conn, %{success: true})
+          {:error, _} -> conn |> put_status(:conflict) |> json(%{error: "Ya estás en la sala"})
+        end
+      else
+        conn |> put_status(:unauthorized) |> json(%{error: "Contraseña incorrecta"})
       end
     else
-      conn |> put_status(:unauthorized) |> json(%{error: "Invalid password"})
+      # Sala pública: no requiere contraseña
+      case Rooms.add_participant(room_id, current_user.id) do
+        {:ok, _} -> json(conn, %{success: true})
+        {:error, _} -> conn |> put_status(:conflict) |> json(%{error: "Ya estás en la sala"})
+      end
     end
   end
+end
 
   # ========== PARTICIPANTS ==========
   def participants(conn, %{"room_id" => room_id}) do
