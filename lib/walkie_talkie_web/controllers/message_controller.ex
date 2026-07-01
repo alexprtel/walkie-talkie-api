@@ -5,71 +5,63 @@ defmodule WalkieTalkieWeb.MessageController do
 
   def start(conn, %{"room_id" => room_id}) do
     current_user = conn.assigns.current_user
-    if is_nil(current_user) do
-      conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
-    else
-      if Rooms.is_participant?(room_id, current_user.id) do
-        case Messages.start_message(room_id, current_user.id) do
-          {:ok, message} -> json(conn, %{message_id: message.id})
-          {:error, changeset} ->
-            conn |> put_status(:unprocessable_entity) |> json(%{errors: changeset_errors(changeset)})
-        end
-      else
-        conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
+    if Rooms.is_participant?(room_id, current_user.id) do
+      case Messages.start_message(room_id, current_user.id) do
+        {:ok, message} -> json(conn, %{message_id: message.id})
+        {:error, changeset} ->
+          conn |> put_status(:unprocessable_entity) |> json(%{errors: changeset_errors(changeset)})
       end
+    else
+      conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
     end
   end
 
   def add_segment(conn, %{"message_id" => message_id}) do
     current_user = conn.assigns.current_user
 
-    if is_nil(current_user) do
-      conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
+    message = Messages.get_message!(message_id)
+    room_id = message.room_id
+
+    if not Rooms.is_participant?(room_id, current_user.id) do
+      conn
+      |> put_status(:forbidden)
+      |> json(%{error: "Not a participant"})
     else
-      message = Messages.get_message!(message_id)
-      room_id = message.room_id
+      sequence = conn.params["sequence"]
+      duration = conn.params["duration"]
+      format = conn.params["format"]
+      audio = conn.params["audio"]
 
-      if not Rooms.is_participant?(room_id, current_user.id) do
-        conn
-        |> put_status(:forbidden)
-        |> json(%{error: "Not a participant"})
-      else
-        sequence = conn.params["sequence"]
-        duration = conn.params["duration"]
-        format = conn.params["format"]
-        audio = conn.params["audio"]
+      cond do
+        is_nil(sequence) or is_nil(duration) or is_nil(format) or is_nil(audio) ->
+          conn
+          |> put_status(:bad_request)
+          |> json(%{error: "Missing fields: sequence, duration, format, audio"})
 
-        cond do
-          is_nil(sequence) or is_nil(duration) or is_nil(format) or is_nil(audio) ->
-            conn
-            |> put_status(:bad_request)
-            |> json(%{error: "Missing fields: sequence, duration, format, audio"})
+        not audio_file_valid?(audio) ->
+          conn
+          |> put_status(:bad_request)
+          |> json(%{error: "Invalid or empty audio file"})
 
-          not audio_file_valid?(audio) ->
-            conn
-            |> put_status(:bad_request)
-            |> json(%{error: "Invalid or empty audio file"})
+        true ->
+          sequence_int = String.to_integer(sequence)
+          duration_int = String.to_integer(duration)
 
-          true ->
-            sequence_int = String.to_integer(sequence)
-            duration_int = String.to_integer(duration)
+          ext = Path.extname(audio.filename)
+          dest_filename = "#{message_id}_seq_#{sequence_int}#{ext}"
+          dest_path = Path.join("uploads/segments", dest_filename)
 
-            ext = Path.extname(audio.filename)
-            dest_filename = "#{message_id}_seq_#{sequence_int}#{ext}"
-            dest_path = Path.join("uploads/segments", dest_filename)
+          File.mkdir_p!("uploads/segments")
+          File.cp!(audio.path, dest_path)
 
-            File.mkdir_p!("uploads/segments")
-            File.cp!(audio.path, dest_path)
-
-            case Messages.add_segment(message_id, current_user.id, sequence_int, duration_int, format, dest_path) do
-              {:ok, segment} ->
-                json(conn, %{segment_id: segment.id, status: "ok"})
-              {:error, changeset} ->
-                conn
-                |> put_status(:unprocessable_entity)
-                |> json(%{errors: changeset_errors(changeset)})
-            end
-        end
+          case Messages.add_segment(message_id, current_user.id, sequence_int, duration_int, format, dest_path) do
+            {:ok, segment} ->
+              json(conn, %{segment_id: segment.id, status: "ok"})
+            {:error, changeset} ->
+              conn
+              |> put_status(:unprocessable_entity)
+              |> json(%{errors: changeset_errors(changeset)})
+          end
       end
     end
   end
@@ -77,31 +69,27 @@ defmodule WalkieTalkieWeb.MessageController do
   def download_segment(conn, %{"segment_id" => segment_id}) do
     current_user = conn.assigns.current_user
 
-    if is_nil(current_user) do
-      conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
-    else
-      case Messages.get_segment(segment_id) do
-        nil ->
-          conn |> put_status(:not_found) |> json(%{error: "Segment not found"})
+    case Messages.get_segment(segment_id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Segment not found"})
 
-        segment ->
-          message = Messages.get_message!(segment.message_id)
-          room_id = message.room_id
+      segment ->
+        message = Messages.get_message!(segment.message_id)
+        room_id = message.room_id
 
-          if Rooms.is_participant?(room_id, current_user.id) do
-            abs_path = Path.absname(segment.file_path)
+        if Rooms.is_participant?(room_id, current_user.id) do
+          abs_path = Path.absname(segment.file_path)
 
-            if File.exists?(abs_path) do
-              conn
-              |> put_resp_content_type("audio/webm", nil)
-              |> send_file(200, abs_path)
-            else
-              conn |> put_status(:not_found) |> json(%{error: "File not found on server"})
-            end
+          if File.exists?(abs_path) do
+            conn
+            |> put_resp_content_type("audio/webm", nil)
+            |> send_file(200, abs_path)
           else
-            conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
+            conn |> put_status(:not_found) |> json(%{error: "File not found on server"})
           end
-      end
+        else
+          conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
+        end
     end
   end
 
@@ -119,48 +107,41 @@ defmodule WalkieTalkieWeb.MessageController do
 
   def poll_segments(conn, %{"room_id" => room_id, "after_sequence" => after_seq}) do
     current_user = conn.assigns.current_user
-
-    if is_nil(current_user) do
-      conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
+    if Rooms.is_participant?(room_id, current_user.id) do
+      after_sequence = String.to_integer(after_seq)
+      segments = Messages.get_new_segments(room_id, after_sequence)
+      render_segments(conn, segments)
     else
-      if Rooms.is_participant?(room_id, current_user.id) do
-        after_sequence = String.to_integer(after_seq)
-        segments = Messages.get_new_segments(room_id, after_sequence)
-        render_segments(conn, segments)
-      else
-        conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
-      end
+      conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
     end
   end
 
   def download_completed_audio(conn, %{"message_id" => message_id}) do
     current_user = conn.assigns.current_user
+    message = Messages.get_message!(message_id)
+    room_id = message.room_id
 
-    if is_nil(current_user) do
-      conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
-    else
-      message = Messages.get_message!(message_id)
-      room_id = message.room_id
-
-      if Rooms.is_participant?(room_id, current_user.id) do
-        case message.completed_audio_path do
-          nil -> conn |> put_status(:not_found) |> json(%{error: "Audio not ready yet"})
-          path ->
-            abs_path = Path.absname(path)
-            if File.exists?(abs_path) do
-              conn
-              |> put_resp_content_type("audio/webm", nil)
-              |> send_file(200, abs_path)
-            else
-              conn |> put_status(:not_found) |> json(%{error: "File not found on server"})
-            end
-        end
-      else
-        conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
+    if Rooms.is_participant?(room_id, current_user.id) do
+      case message.completed_audio_path do
+        nil -> conn |> put_status(:not_found) |> json(%{error: "Audio not ready yet"})
+        path ->
+          abs_path = Path.absname(path)
+          if File.exists?(abs_path) do
+            conn
+            |> put_resp_content_type("audio/webm", nil)
+            |> send_file(200, abs_path)
+          else
+            conn |> put_status(:not_found) |> json(%{error: "File not found on server"})
+          end
       end
+    else
+      conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
     end
   end
 
+  # Valida que el archivo subido exista en disco y pese más de 0 bytes,
+  # antes de copiarlo a uploads/segments. Evita guardar segmentos vacíos
+  # que luego harían fallar la concatenación con FFmpeg.
   defp audio_file_valid?(%Plug.Upload{path: path}) do
     case File.stat(path) do
       {:ok, %File.Stat{size: size}} when size > 0 -> true
@@ -192,18 +173,14 @@ defmodule WalkieTalkieWeb.MessageController do
     end)
   end
 
+  # Historial de mensajes completos de una sala -Z
   def history(conn, %{"room_id" => room_id}) do
     current_user = conn.assigns.current_user
-
-    if is_nil(current_user) do
-      conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
+    if Rooms.is_participant?(room_id, current_user.id) do
+      messages = Messages.get_room_messages(room_id)
+      render_messages(conn, messages)
     else
-      if Rooms.is_participant?(room_id, current_user.id) do
-        messages = Messages.get_room_messages(room_id)
-        render_messages(conn, messages)
-      else
-        conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
-      end
+      conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
     end
   end
 
@@ -220,18 +197,14 @@ defmodule WalkieTalkieWeb.MessageController do
     end)})
   end
 
+  # para borrar segmentos
   def clean_expired(conn, %{"room_id" => room_id}) do
     current_user = conn.assigns.current_user
-
-    if is_nil(current_user) do
-      conn |> put_status(:unauthorized) |> json(%{error: "Usuario no autenticado"})
+    if Rooms.is_participant?(room_id, current_user.id) do
+      count = Messages.clean_expired_segments(24)
+      json(conn, %{deleted_count: count, status: "ok"})
     else
-      if Rooms.is_participant?(room_id, current_user.id) do
-        count = Messages.clean_expired_segments(24)
-        json(conn, %{deleted_count: count, status: "ok"})
-      else
-        conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
-      end
+      conn |> put_status(:forbidden) |> json(%{error: "Not a participant"})
     end
   end
 end

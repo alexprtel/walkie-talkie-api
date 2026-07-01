@@ -15,18 +15,10 @@ defmodule WalkieTalkieWeb.Router do
   defp fetch_current_user(conn, _opts) do
     token = List.first(Plug.Conn.get_req_header(conn, "authorization"))
     token = if token, do: String.replace_prefix(token, "Bearer ", ""), else: nil
-  # ===== LOGS PARA DEPURAR AUTENTICACIÓN =====
-    IO.inspect(token, label: "🔑 Token recibido en backend")
-     if token do
-      case WalkieTalkie.Guardian.verify_token(token) do
-        {:ok, claims} ->
-          user = WalkieTalkie.Accounts.get_user!(claims["user_id"])
-          IO.inspect(user, label: "👤 Usuario autenticado")
-          assign(conn, :current_user, user)
-        error ->
-          IO.inspect(error, label: "❌ Error al verificar token")
-          assign(conn, :current_user, nil)
-      end
+
+    if token do
+      user = WalkieTalkie.Guardian.get_user_from_token(token)
+      assign(conn, :current_user, user)
     else
       assign(conn, :current_user, nil)
     end

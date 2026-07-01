@@ -75,7 +75,6 @@ export async function createRoom(roomData) {
 }
 
 export async function joinRoom(roomId, password) {
-  console.log('🔑 Token antes de join:', token); //para validar si se entra el token antes de unirse
   const res = await apiFetch(`/audio-rooms/${roomId}/join`, {
     method: 'POST',
     body: JSON.stringify({ password: password || "" })
